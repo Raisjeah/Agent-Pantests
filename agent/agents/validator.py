@@ -4,9 +4,12 @@ import yaml
 from langchain_core.prompts import ChatPromptTemplate
 from agent.llm import llm
 from agent.logger import AILogger
+from utils.parser import parse_llm_json
 
 logger = AILogger("Validator")
-prompt_path = Path(__file__).parent.parent.parent / "prompts" / "validator.yaml"
+current_dir = Path(__file__).parent.parent.parent
+prompt_path = current_dir / "prompts" / "validator.yaml"
+
 with open(prompt_path) as f:
     prompt_cfg = yaml.safe_load(f)
 prompt = ChatPromptTemplate.from_messages(prompt_cfg["messages"])
@@ -23,18 +26,34 @@ def validator_node(state):
 
     chain = prompt | llm
     try:
-        response = chain.invoke({"findings": json.dumps(findings)})
-        validated = json.loads(response.content).get("validated", findings)
+        response = chain.invoke({"findings": json.dumps(findings, indent=2)})
+        parsed = parse_llm_json(response.content)
+        if isinstance(parsed, dict):
+            validated = parsed.get("validated", findings)
+        elif isinstance(parsed, list):
+            validated = parsed
+        else:
+            validated = findings
     except Exception as e:
         logger.error(f"Validator error: {e}")
         validated = findings
 
-    high = sum(1 for f in validated if f.get("severity") == "high")
-    medium = sum(1 for f in validated if f.get("severity") == "medium")
-    low = sum(1 for f in validated if f.get("severity") == "low")
+    # Ensure validated is a list
+    if not isinstance(validated, list):
+        validated = [validated] if validated else []
+
+    high = sum(1 for f in validated if isinstance(f, dict) and f.get("severity") == "high")
+    medium = sum(1 for f in validated if isinstance(f, dict) and f.get("severity") == "medium")
+    low = sum(1 for f in validated if isinstance(f, dict) and f.get("severity") == "low")
+
     report = {
         "target": state["target"],
         "findings": validated,
-        "summary": {"high": high, "medium": medium, "low": low, "total": len(validated)}
+        "summary": {
+            "high": high,
+            "medium": medium,
+            "low": low,
+            "total": len(validated)
+        }
     }
     return {"final_report": report}
