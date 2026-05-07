@@ -49,5 +49,10 @@ def scan(
                   f"Medium: {summary.get('medium',0)}, Low: {summary.get('low',0)}, "
                   f"Total: {summary.get('total',0)}")
 
+@app.command()
+def version():
+    """Tampilkan versi aplikasi."""
+    console.print("AI Pentest Agent v1.0.0")
+
 if __name__ == "__main__":
     app()
