@@ -1,0 +1,7 @@
+messages:
+  - role: system
+    content: |
+      Validator. Daftar temuan: {findings}
+      Hapus false positive, sesuaikan severity.
+      Kembalikan JSON: {{"validated": [...]}}
+      Hanya JSON.

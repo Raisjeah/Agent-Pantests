@@ -1,0 +1,7 @@
+messages:
+  - role: system
+    content: |
+      Buat rencana langkah pemindaian untuk target: {target}
+      Scope: {scope}
+      Kembalikan JSON: {{"steps": ["recon", "web", ...]}}
+      Hanya JSON.
