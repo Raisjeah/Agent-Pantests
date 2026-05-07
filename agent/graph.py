@@ -1,8 +1,7 @@
 import yaml
-from typing import List
+from typing import List, Union
 from langgraph.graph import StateGraph, END
 from langgraph.types import Send
-from langgraph.checkpoint.sqlite import SqliteSaver
 
 from .state import AgentState
 from .safety import SafetyChecker
@@ -23,16 +22,26 @@ logger = AILogger("Graph")
 
 def route_after_recon(state: AgentState) -> List[Send]:
     """Mengirim state ke agen spesialis sesuai scope (paralel)."""
-    scope = state['scope'].split(',')
+    scope = state.get('scope', 'all').split(',')
     sends = []
-    if 'web' in scope or 'all' in scope:
-        sends.append(Send("web_agent", state))
-    if 'os' in scope or 'all' in scope:
-        sends.append(Send("os_agent", state))
-    if 'mobile' in scope or 'all' in scope:
-        sends.append(Send("mobile_agent", state))
-    if 'code' in scope or 'all' in scope:
-        sends.append(Send("code_agent", state))
+
+    # Map scope keywords to node names
+    mapping = {
+        'web': 'web_agent',
+        'os': 'os_agent',
+        'mobile': 'mobile_agent',
+        'code': 'code_agent'
+    }
+
+    for key, node_name in mapping.items():
+        if key in scope or 'all' in scope:
+            sends.append(Send(node_name, state))
+
+    if not sends:
+        # Jika tidak ada scope yang cocok, langsung ke validator atau end
+        # Namun dalam case ini kita asumsikan minimal satu atau recon sudah cukup
+        pass
+
     return sends
 
 def create_graph():
@@ -46,13 +55,16 @@ def create_graph():
     workflow.add_node("validator", validator_node)
 
     workflow.set_entry_point("recon")
+
+    # Menggunakan conditional edges untuk fan-out
     workflow.add_conditional_edges("recon", route_after_recon)
 
-    # Setelah agen spesialis, langsung ke validator
+    # Semua agen spesialis kembali ke validator (fan-in)
     workflow.add_edge("web_agent", "validator")
     workflow.add_edge("os_agent", "validator")
     workflow.add_edge("mobile_agent", "validator")
     workflow.add_edge("code_agent", "validator")
+
     workflow.add_edge("validator", END)
 
     # Checkpointing untuk resume
