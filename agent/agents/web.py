@@ -8,7 +8,7 @@ from agent.logger import AILogger
 from utils.parser import parse_llm_json
 
 logger = AILogger("WebAgent")
-current_dir = Path(__file__).parent.parent.parent
+current_dir = Path(__file__).parent.parent
 prompt_path = current_dir / "prompts" / "web.yaml"
 
 with open(prompt_path) as f:
