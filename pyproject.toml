@@ -23,5 +23,12 @@ dependencies = [
 [project.scripts]
 ai-pentest = "cli:app"
 
+[tool.setuptools]
+py-modules = ["cli"]
+include-package-data = true
+
 [tool.setuptools.packages.find]
 include = ["agent*", "utils*"]
+
+[tool.setuptools.package-data]
+"*" = ["config.yaml", "prompts/*.yaml"]

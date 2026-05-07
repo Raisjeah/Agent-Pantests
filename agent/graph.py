@@ -1,4 +1,5 @@
 import yaml
+from pathlib import Path
 from typing import List, Union
 from langgraph.graph import StateGraph, END
 from langgraph.types import Send
@@ -14,7 +15,8 @@ from .agents.code import code_node
 from .agents.validator import validator_node
 from .logger import AILogger
 
-with open("config.yaml") as f:
+config_path = Path(__file__).parent / "config.yaml"
+with open(config_path) as f:
     config = yaml.safe_load(f)
 
 safety = SafetyChecker(config["safety"])
