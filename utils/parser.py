@@ -38,8 +38,8 @@ def parse_llm_json(content: str) -> Union[Dict[str, Any], list]:
     # Bersihkan whitespace
     content = content.strip()
 
-    # Cari blok kode markdown
-    json_match = re.search(r"```(?:json)?\s*(.*?)\s*```", content, re.DOTALL)
+    # Cari blok kode markdown (handle unclosed blocks as well)
+    json_match = re.search(r"```(?:json)?\s*(.*?)\s*(?:```|$)", content, re.DOTALL)
     if json_match:
         json_str = json_match.group(1).strip()
     else:

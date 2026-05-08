@@ -5,6 +5,8 @@ from langchain_core.prompts import ChatPromptTemplate
 from agent.llm import llm
 from agent.logger import AILogger
 from utils.parser import parse_llm_json
+from utils.runner import run_command
+import shlex
 
 logger = AILogger("Access")
 current_dir = Path(__file__).parent.parent
@@ -38,6 +40,28 @@ def access_node(state):
         })
         parsed = parse_llm_json(response.content)
         access_plan = parsed
+
+        # Execute commands if present
+        commands = access_plan.get("commands", [])
+        execution_logs = []
+        for cmd_str in commands:
+            logger.info(f"Executing: {cmd_str}")
+            try:
+                cmd_list = shlex.split(cmd_str)
+                stdout, stderr = run_command(cmd_list)
+                execution_logs.append({
+                    "command": cmd_str,
+                    "stdout": stdout,
+                    "stderr": stderr
+                })
+            except Exception as cmd_err:
+                logger.error(f"Command execution error: {cmd_err}")
+                execution_logs.append({
+                    "command": cmd_str,
+                    "error": str(cmd_err)
+                })
+        access_plan["execution_logs"] = execution_logs
+
     except Exception as e:
         logger.error(f"LLM analysis error in Access: {e}")
 

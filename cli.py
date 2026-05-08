@@ -34,8 +34,10 @@ def scan(
         "exploitation": None,
         "access": None
     }
+    # Setiap kali scan, gunakan thread_id baru (UUID) untuk memastikan state isolasi
     thread_id = str(uuid.uuid4())
     config = {"configurable": {"thread_id": thread_id}}
+    console.print(f"[dim]Thread ID: {thread_id}[/dim]")
 
     current_state = initial_state
 
@@ -76,7 +78,10 @@ def scan(
             raise typer.Exit(1)
 
     # Final report processing
-    # Since we removed the validator node in the linear graph, let's just show the access plan or summary
+    exploitation_data = current_state.get("exploitation", {})
+    if exploitation_data.get("status") == "failed":
+        console.print(f"\n[bold red]Exploitation FAILED: {exploitation_data.get('reason')}[/bold red]")
+
     access_plan = current_state.get("access")
     if access_plan:
         console.print("\n[bold green]Pentest Selesai. Hasil Akses Akhir:[/bold green]")
