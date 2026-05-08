@@ -5,6 +5,9 @@ import json
 @tool
 def semgrep_tool(target: str) -> dict:
     """Jalankan semgrep pada direktori kode."""
+    if target.startswith("http://") or target.startswith("https://"):
+        return {"error": "Semgrep hanya mendukung file lokal, bukan URL website."}
+
     cmd = ["semgrep", "--config=auto", "--quiet", "--json", target]
     stdout, stderr = run_command(cmd, timeout=300)
     try:

@@ -30,7 +30,9 @@ def web_node(state):
 
     # LLM analisis dari recon_data
     recon_data = state.get("recon_data")
-    if recon_data:
+    # Cek apakah ada findings yang valid (bukan sekedar info "No SQL injection detected")
+    valid_findings = [f for f in findings if f.get("severity") != "info"]
+    if recon_data and valid_findings:
         chain = prompt | llm
         try:
             response = chain.invoke({

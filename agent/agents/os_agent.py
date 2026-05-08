@@ -30,7 +30,9 @@ def os_node(state):
 
     # LLM analisis dari recon_data
     recon_data = state.get("recon_data")
-    if recon_data:
+    # Cek apakah ada findings yang valid (bukan sekedar error message)
+    valid_findings = [f for f in findings if isinstance(f, dict) and "error" not in f]
+    if recon_data and valid_findings:
         chain = prompt | llm
         try:
             response = chain.invoke({

@@ -12,6 +12,9 @@ def nuclei_tool(target: str, template: str = "services") -> dict:
     cmd = ["nuclei", "-target", target, "-t", template, "-jsonl", "-silent"]
     stdout, stderr = run_command(cmd, timeout=300)
 
+    if "no templates" in stderr.lower():
+        return {"error": "Nuclei: Template tidak ditemukan atau tidak tersedia.", "raw_stderr": stderr}
+
     results = []
     if stdout:
         for line in stdout.strip().split('\n'):
