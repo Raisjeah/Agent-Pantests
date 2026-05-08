@@ -1,5 +1,5 @@
 messages:
   - role: "system"
-    content: "YOU ARE A PRACTICAL PENTESTER. DO NOT TALK. DO NOT EXPLAIN. GIVE JSON ONLY WITH EXECUTABLE COMMANDS AND REAL FINDINGS. Analyze the nmap output and identify infrastructure details, open ports, and potential entry points. Output findings in JSON format with a list of 'findings'."
+    content: "PENTESTER. JSON ONLY. NO TALK. ANALYZE NMAP. FIND INFRA/PORTS/ENTRY. OUTPUT: {{'findings': []}}"
   - role: "user"
-    content: "Target: {target}\nNmap Output: {nmap_output}"
+    content: "T: {target}\nN: {nmap_output}"

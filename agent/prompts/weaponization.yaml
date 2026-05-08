@@ -1,5 +1,5 @@
 messages:
   - role: "system"
-    content: "YOU ARE A PRACTICAL PENTESTER. DO NOT TALK. DO NOT EXPLAIN. GIVE JSON ONLY WITH EXECUTABLE COMMANDS AND REAL FINDINGS. Based on confirmed vulnerabilities, design potential exploit payloads or strategies. Output JSON with a list of 'payloads'."
+    content: "PENTESTER. JSON ONLY. NO TALK. WEAPONIZATION. If MySQL detected, include payloads like UNION SELECT, ERROR-BASED, LOAD_FILE, INTO OUTFILE. OUTPUT: {{'payloads': []}}"
   - role: "user"
-    content: "Target: {target}\nFindings: {findings}"
+    content: "T: {target}\nF: {findings}"

@@ -17,14 +17,21 @@ def scanning_node(state):
     logger.info(f"Scanning dimulai: {target}")
 
     # Run nmap and nuclei for scanning
+    # Fallback logic: if a tool is missing, report it as a finding instead of crashing
     try:
         nmap_res = nmap_tool.invoke({"target": target, "ports": "1-1000"})
+    except FileNotFoundError as e:
+        logger.warning(f"Tool nmap tidak ditemukan: {e}")
+        nmap_res = {"error": "nmap not found", "finding": "Nmap missing in Kali Linux environment"}
     except Exception as e:
         logger.error(f"nmap gagal: {e}")
         nmap_res = {"error": str(e)}
 
     try:
         nuclei_res = nuclei_tool.invoke({"target": target, "template": "network"})
+    except FileNotFoundError as e:
+        logger.warning(f"Tool nuclei tidak ditemukan: {e}")
+        nuclei_res = {"error": "nuclei not found", "finding": "Nuclei missing in Kali Linux environment"}
     except Exception as e:
         logger.error(f"nuclei gagal: {e}")
         nuclei_res = {"error": str(e)}

@@ -1,6 +1,8 @@
 import yaml
+import time
 from pathlib import Path
 from typing import List, Union
+from functools import wraps
 from langgraph.graph import StateGraph, END
 
 from .state import AgentState
@@ -22,19 +24,27 @@ with open(config_path) as f:
 
 logger = AILogger("Graph")
 
+def delayed_node(func):
+    @wraps(func)
+    def wrapper(state):
+        logger.info(f"Menunggu 2 detik sebelum eksekusi {func.__name__} (Hemat API)...")
+        time.sleep(2)
+        return func(state)
+    return wrapper
+
 def create_graph():
     workflow = StateGraph(AgentState)
 
-    # Add 9 nodes
-    workflow.add_node("passive_recon", passive_recon_node)
-    workflow.add_node("active_recon", active_recon_node)
-    workflow.add_node("scanning", scanning_node)
-    workflow.add_node("enumeration", enumeration_node)
-    workflow.add_node("vuln_assess", vuln_assess_node)
-    workflow.add_node("weaponization", weaponization_node)
-    workflow.add_node("delivery", delivery_node)
-    workflow.add_node("exploitation", exploitation_node)
-    workflow.add_node("access", access_node)
+    # Add 9 nodes with delay
+    workflow.add_node("passive_recon", delayed_node(passive_recon_node))
+    workflow.add_node("active_recon", delayed_node(active_recon_node))
+    workflow.add_node("scanning", delayed_node(scanning_node))
+    workflow.add_node("enumeration", delayed_node(enumeration_node))
+    workflow.add_node("vuln_assess", delayed_node(vuln_assess_node))
+    workflow.add_node("weaponization", delayed_node(weaponization_node))
+    workflow.add_node("delivery", delayed_node(delivery_node))
+    workflow.add_node("exploitation", delayed_node(exploitation_node))
+    workflow.add_node("access", delayed_node(access_node))
 
     # Set entry point
     workflow.set_entry_point("passive_recon")
