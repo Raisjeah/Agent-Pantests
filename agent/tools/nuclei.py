@@ -2,12 +2,17 @@ from langchain_core.tools import tool
 from utils.runner import run_command
 import json
 import shutil
+from utils.parser import extract_host
 
 @tool
 def nuclei_tool(target: str, template: str = "services") -> dict:
     """Jalankan nuclei scanner dengan template tertentu."""
     if not shutil.which("nuclei"):
         return {"error": "nuclei tidak ditemukan di sistem."}
+
+    # Gunakan host saja untuk template 'services' agar scanning lebih akurat
+    if template == "services":
+        target = extract_host(target)
 
     cmd = ["nuclei", "-target", target, "-t", template, "-jsonl", "-silent"]
     stdout, stderr = run_command(cmd, timeout=300)

@@ -3,7 +3,7 @@ from utils.runner import run_command
 import xml.etree.ElementTree as ET
 import shutil
 import socket
-from urllib.parse import urlparse
+from utils.parser import extract_host
 
 @tool
 def nmap_tool(target: str, ports: str = "1-1000") -> dict:
@@ -11,14 +11,8 @@ def nmap_tool(target: str, ports: str = "1-1000") -> dict:
     if not shutil.which("nmap"):
         return {"error": "nmap tidak ditemukan di sistem."}
 
-    # Parsing target jika berupa URL
-    clean_target = target
-    if target.startswith("http://") or target.startswith("https://"):
-        try:
-            parsed = urlparse(target)
-            clean_target = parsed.hostname or target
-        except Exception:
-            clean_target = target
+    # Parsing target menggunakan utility terpusat
+    clean_target = extract_host(target)
 
     # DNS Lookup untuk memastikan target valid
     try:
