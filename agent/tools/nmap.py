@@ -2,6 +2,8 @@ from langchain_core.tools import tool
 from utils.runner import run_command
 import xml.etree.ElementTree as ET
 import shutil
+import socket
+from urllib.parse import urlparse
 
 @tool
 def nmap_tool(target: str, ports: str = "1-1000") -> dict:
@@ -9,7 +11,22 @@ def nmap_tool(target: str, ports: str = "1-1000") -> dict:
     if not shutil.which("nmap"):
         return {"error": "nmap tidak ditemukan di sistem."}
 
-    cmd = ["nmap", "-sV", "-p", ports, "-oX", "-", target]
+    # Parsing target jika berupa URL
+    clean_target = target
+    if target.startswith("http://") or target.startswith("https://"):
+        try:
+            parsed = urlparse(target)
+            clean_target = parsed.hostname or target
+        except Exception:
+            clean_target = target
+
+    # DNS Lookup untuk memastikan target valid
+    try:
+        target_ip = socket.gethostbyname(clean_target)
+    except Exception as e:
+        return {"error": f"Gagal resolusi DNS untuk {clean_target}: {e}"}
+
+    cmd = ["nmap", "-sV", "-p", ports, "-oX", "-", target_ip]
     stdout, stderr = run_command(cmd)
 
     if not stdout and stderr:

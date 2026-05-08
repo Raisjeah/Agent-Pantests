@@ -36,9 +36,17 @@ def recon_node(state):
         logger.error(f"nuclei gagal: {e}")
         nuclei_res = {"error": str(e)}
 
-    # LLM analysis
-    chain = prompt | llm
+    # LLM analysis - Check if we have valid results to analyze
+    has_nmap = nmap_res and "error" not in nmap_res and nmap_res.get("services")
+    has_nuclei = nuclei_res and "error" not in nuclei_res and nuclei_res.get("nuclei_results")
+
     findings = []
+    if not (has_nmap or has_nuclei):
+        logger.warning(f"Recon tidak menemukan hasil valid dari nmap atau nuclei untuk {target}. Skip LLM analysis.")
+        recon_data = {"nmap": nmap_res, "nuclei": nuclei_res}
+        return {"findings": [], "recon_data": recon_data}
+
+    chain = prompt | llm
     try:
         response = chain.invoke({
             "target": target,

@@ -24,9 +24,21 @@ def validator_node(state):
         }
         return {"final_report": report}
 
+    # Only send valid findings to LLM for validation
+    valid_findings = [f for f in findings if isinstance(f, dict) and "error" not in f]
+
+    if not valid_findings:
+        logger.info("No valid findings to validate. Skipping LLM validation.")
+        report = {
+            "target": state["target"],
+            "findings": findings,
+            "summary": {"high": 0, "medium": 0, "low": 0, "total": len(findings)}
+        }
+        return {"final_report": report}
+
     chain = prompt | llm
     try:
-        response = chain.invoke({"findings": json.dumps(findings, indent=2)})
+        response = chain.invoke({"findings": json.dumps(valid_findings, indent=2)})
         parsed = parse_llm_json(response.content)
         if isinstance(parsed, dict):
             validated = parsed.get("validated", findings)
