@@ -9,7 +9,7 @@ from utils.parser import extract_host
 def nmap_tool(target: str, ports: str = "1-1000") -> dict:
     """Scan target dengan nmap -sV, kembalikan informasi service."""
     if not shutil.which("nmap"):
-        return {"error": "nmap tidak ditemukan di sistem."}
+        return {"services": [], "error": "nmap tidak ditemukan di sistem."}
 
     # Parsing target menggunakan utility terpusat
     clean_target = extract_host(target)
@@ -18,14 +18,14 @@ def nmap_tool(target: str, ports: str = "1-1000") -> dict:
     try:
         target_ip = socket.gethostbyname(clean_target)
     except Exception as e:
-        return {"error": f"Gagal resolusi DNS untuk {clean_target}: {e}"}
+        return {"services": [], "error": f"Gagal resolusi DNS untuk {clean_target}: {e}"}
 
     # Add -Pn to skip host discovery (useful for targets blocking ICMP)
     cmd = ["nmap", "-sV", "-Pn", "-p", ports, "-oX", "-", target_ip]
     stdout, stderr = run_command(cmd)
 
     if not stdout and stderr:
-        return {"error": stderr}
+        return {"services": [], "error": stderr}
 
     try:
         root = ET.fromstring(stdout)
@@ -54,4 +54,4 @@ def nmap_tool(target: str, ports: str = "1-1000") -> dict:
                 })
         return {"services": services, "raw_stdout": stdout}
     except Exception as e:
-        return {"error": f"Gagal parsing XML nmap: {e}", "raw_stdout": stdout}
+        return {"services": [], "error": f"Gagal parsing XML nmap: {e}", "raw_stdout": stdout}
