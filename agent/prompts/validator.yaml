@@ -19,4 +19,4 @@ messages:
         "verdict": "..."
       }}
   - role: "user"
-    content: "Findings to Validate: {findings}"
+    content: "Target: {target}\nFindings to Validate: {findings}"
