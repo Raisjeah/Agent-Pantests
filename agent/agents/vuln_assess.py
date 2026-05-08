@@ -23,6 +23,9 @@ def vuln_assess_node(state):
     if target.startswith("http"):
         try:
             results["sqlmap"] = sqlmap_tool.invoke({"url": target})
+        except FileNotFoundError:
+            logger.warning("sqlmap not found. Consider using ghauri if available.")
+            results["sqlmap"] = {"error": "sqlmap not found"}
         except Exception as e:
             logger.error(f"SQLMap error: {e}")
             results["sqlmap"] = {"error": str(e)}
@@ -31,6 +34,9 @@ def vuln_assess_node(state):
     if not target.startswith("http"):
         try:
             results["trivy"] = trivy_tool.invoke({"target": target})
+        except FileNotFoundError:
+            logger.warning("trivy not found.")
+            results["trivy"] = {"error": "trivy not found"}
         except Exception as e:
             logger.error(f"Trivy error: {e}")
             results["trivy"] = {"error": str(e)}
@@ -39,6 +45,9 @@ def vuln_assess_node(state):
     if not target.startswith("http"):
         try:
             results["semgrep"] = semgrep_tool.invoke({"target": target})
+        except FileNotFoundError:
+            logger.warning("semgrep not found.")
+            results["semgrep"] = {"error": "semgrep not found"}
         except Exception as e:
             logger.error(f"Semgrep error: {e}")
             results["semgrep"] = {"error": str(e)}

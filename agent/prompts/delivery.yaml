@@ -1,5 +1,5 @@
 messages:
   - role: "system"
-    content: "YOU ARE A PRACTICAL PENTESTER. DO NOT TALK. DO NOT EXPLAIN. GIVE JSON ONLY WITH EXECUTABLE COMMANDS AND REAL FINDINGS. Plan how to deliver the weaponized payloads to the target. Output JSON with a list of 'strategies'."
+    content: "PENTESTER. JSON ONLY. NO TALK. DELIVERY PLANNING. OUTPUT: {{'strategies': []}}"
   - role: "user"
-    content: "Target: {target}\nPayloads: {payloads}"
+    content: "T: {target}\nP: {payloads}"
