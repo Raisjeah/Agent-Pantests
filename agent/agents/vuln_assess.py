@@ -15,47 +15,39 @@ prompt_path = current_dir / "prompts" / "vuln_assess.yaml"
 
 def vuln_assess_node(state):
     target = state["target"]
-    logger.info(f"Vulnerability Assessment dimulai: {target}")
+    logger.info(f"VULN_ANALYSIS phase started for {target}")
 
     results = {}
 
-    # SQLMap for URLs
+    # Run tools independently
     if target.startswith("http"):
         try:
             results["sqlmap"] = sqlmap_tool.invoke({"url": target})
         except Exception as e:
             logger.error(f"SQLMap error: {e}")
             results["sqlmap"] = {"error": str(e)}
-
-    # Trivy for files/hosts
-    if not target.startswith("http"):
+    else:
         try:
             results["trivy"] = trivy_tool.invoke({"target": target})
         except Exception as e:
             logger.error(f"Trivy error: {e}")
             results["trivy"] = {"error": str(e)}
 
-    # Semgrep - SKIP if it starts with http
-    if not target.startswith("http"):
         try:
             results["semgrep"] = semgrep_tool.invoke({"target": target})
         except Exception as e:
             logger.error(f"Semgrep error: {e}")
             results["semgrep"] = {"error": str(e)}
-    else:
-        logger.info("Skipping Semgrep for URL target")
 
-    # Error Silence: check if any tool returned valid data
     has_data = any(res for res in results.values() if res and "error" not in res)
 
-    findings = []
     if not has_data:
-        logger.warning(f"VulnAssess tidak menemukan hasil valid untuk {target}.")
-        return {"vuln_assess": results}
-
-    if not prompt_path.exists():
-        logger.error(f"Prompt file not found: {prompt_path}")
-        return {"vuln_assess": results}
+        logger.warning(f"No evidence found in VULN_ANALYSIS for {target}")
+        return {
+            "current_state": "VULN_ANALYSIS",
+            "status": "empty_result",
+            "vuln_analysis": results
+        }
 
     with open(prompt_path) as f:
         prompt_cfg = yaml.safe_load(f)
@@ -68,11 +60,22 @@ def vuln_assess_node(state):
             "tool_results": json.dumps(results, indent=2)
         })
         parsed = parse_llm_json(response.content)
-        if isinstance(parsed, dict):
-            findings = parsed.get("findings", [])
-        elif isinstance(parsed, list):
-            findings = parsed
-    except Exception as e:
-        logger.error(f"LLM analysis error in VulnAssess: {e}")
 
-    return {"findings": findings, "vuln_assess": {"results": results, "findings": findings}}
+        # Enforce confidence threshold for status
+        status = parsed.get("status", "success")
+        confidence = parsed.get("confidence", 0.0)
+        if confidence < 0.7 and status == "success":
+            status = "blocked"
+            logger.warning(f"Confidence {confidence} below 0.7. Blocking exploitation.")
+
+        return {
+            "current_state": "VULN_ANALYSIS",
+            "status": status,
+            "confidence": confidence,
+            "findings": parsed.get("findings", []),
+            "evidence": [{"tool": "vuln_analysis", "data": results}],
+            "vuln_analysis": parsed
+        }
+    except Exception as e:
+        logger.error(f"LLM error in VULN_ANALYSIS: {e}")
+        return {"current_state": "VULN_ANALYSIS", "status": "failed", "status_reason": str(e)}
