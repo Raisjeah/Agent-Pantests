@@ -1,6 +1,34 @@
 import json
 import re
 from typing import Any, Dict, Union
+from urllib.parse import urlparse
+
+def extract_host(target: str) -> str:
+    """
+    Ekstrak hostname atau IP dari target (URL, IP, atau domain).
+    Contoh: http://182.23.82.141/phpmyadmin/ -> 182.23.82.141
+    """
+    if not target:
+        return ""
+
+    # Handle protocol-less URL patterns like example.com/path
+    if "/" in target and not (target.startswith("http://") or target.startswith("https://")):
+        # Simple heuristic: if it has a slash but no protocol, it might be a path
+        # Check if it looks like an IP/domain before the slash
+        parts = target.split("/", 1)
+        potential_host = parts[0]
+        # Very basic check for domain/IP: contains dot and no space
+        if "." in potential_host and " " not in potential_host:
+             target = "http://" + target
+
+    if target.startswith("http://") or target.startswith("https://"):
+        try:
+            parsed = urlparse(target)
+            return parsed.hostname or target
+        except Exception:
+            return target
+
+    return target
 
 def parse_llm_json(content: str) -> Union[Dict[str, Any], list]:
     """

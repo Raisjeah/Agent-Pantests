@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import typer
 import json
+import uuid
 from rich.console import Console
 from agent.graph import create_graph
 
@@ -25,7 +26,8 @@ def scan(
         "findings": [],
         "final_report": None
     }
-    config = {"configurable": {"thread_id": "1"}}
+    thread_id = str(uuid.uuid4())
+    config = {"configurable": {"thread_id": thread_id}}
     try:
         result = graph.invoke(initial_state, config)
     except Exception as e:
