@@ -23,7 +23,10 @@ def validator_node(state):
 
     chain = prompt | llm
     try:
-        response = chain.invoke({"findings": json.dumps(findings, indent=2)})
+        response = chain.invoke({
+            "target": target,
+            "findings": json.dumps(findings, indent=2)
+        })
         report = parse_llm_json(response.content)
 
         # Merge tool evidence into report

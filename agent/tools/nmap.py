@@ -20,7 +20,8 @@ def nmap_tool(target: str, ports: str = "1-1000") -> dict:
     except Exception as e:
         return {"error": f"Gagal resolusi DNS untuk {clean_target}: {e}"}
 
-    cmd = ["nmap", "-sV", "-p", ports, "-oX", "-", target_ip]
+    # Add -Pn to skip host discovery (useful for targets blocking ICMP)
+    cmd = ["nmap", "-sV", "-Pn", "-p", ports, "-oX", "-", target_ip]
     stdout, stderr = run_command(cmd)
 
     if not stdout and stderr:
@@ -34,12 +35,19 @@ def nmap_tool(target: str, ports: str = "1-1000") -> dict:
             address = addr_elem.get('addr') if addr_elem is not None else target
 
             for port in host.findall('.//ports/port'):
+                state_elem = port.find('state')
+                state = state_elem.get('state') if state_elem is not None else 'unknown'
+
+                # Hanya ambil port yang terbuka agar LLM tidak bingung dengan filtered/closed ports
+                if state != 'open':
+                    continue
+
                 svc = port.find('service')
                 services.append({
                     "address": address,
                     "port": port.get('portid'),
                     "protocol": port.get('protocol'),
-                    "state": port.find('state').get('state') if port.find('state') is not None else 'unknown',
+                    "state": state,
                     "name": svc.get('name') if svc is not None else '',
                     "product": svc.get('product', '') if svc is not None else '',
                     "version": svc.get('version', '') if svc is not None else ''

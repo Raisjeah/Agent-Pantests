@@ -36,9 +36,21 @@ def recon_node(state):
 
     if not (has_nmap or has_nuclei):
         logger.warning(f"No evidence found in RECON for {target}")
+        # Log detail tools result untuk debugging
+        if "error" in nmap_res:
+            logger.error(f"Nmap Error: {nmap_res['error']}")
+        else:
+            logger.info(f"Nmap found 0 open ports.")
+
+        if "error" in nuclei_res:
+            logger.error(f"Nuclei Error: {nuclei_res['error']}")
+        else:
+            logger.info(f"Nuclei found 0 results.")
+
         return {
             "current_state": "RECON",
             "status": "empty_result",
+            "evidence": [{"tool": "recon", "data": {"nmap": nmap_res, "nuclei": nuclei_res}}],
             "recon": {"nmap": nmap_res, "nuclei": nuclei_res}
         }
 
