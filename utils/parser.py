@@ -92,4 +92,4 @@ def parse_llm_json(content: str) -> Union[Dict[str, Any], list]:
                     pass
 
     # Jika gagal semua, raise error yang lebih deskriptif
-    raise ValueError(f"Gagal mem-parse JSON dari content (100 chars): {content[:100]}...")
+    raise ValueError(f"Gagal mem-parse JSON dari content ({len(content)} chars): {content}")

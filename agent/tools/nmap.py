@@ -44,6 +44,6 @@ def nmap_tool(target: str, ports: str = "1-1000") -> dict:
                     "product": svc.get('product', '') if svc is not None else '',
                     "version": svc.get('version', '') if svc is not None else ''
                 })
-        return {"services": services, "raw_stdout": stdout[:500]}
+        return {"services": services, "raw_stdout": stdout}
     except Exception as e:
-        return {"error": f"Gagal parsing XML nmap: {e}", "raw_stdout": stdout[:1000]}
+        return {"error": f"Gagal parsing XML nmap: {e}", "raw_stdout": stdout}
