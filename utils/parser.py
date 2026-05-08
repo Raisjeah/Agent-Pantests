@@ -32,29 +32,64 @@ def extract_host(target: str) -> str:
 
 def parse_llm_json(content: str) -> Union[Dict[str, Any], list]:
     """
-    Ekstrak dan parse JSON dari output LLM.
-    Mendukung format markdown ```json ... ``` atau string JSON mentah.
+    Ekstrak dan parse JSON dari output LLM secara robust.
+    Mendukung format markdown ```json ... ```, string JSON mentah,
+    dan membersihkan artefak markdown/teks narasi yang sering dikirim LLM.
     """
+    if not content:
+        return {}
+
     # Bersihkan whitespace
-    content = content.strip()
+    json_str = content.strip()
 
-    # Cari blok kode markdown (handle unclosed blocks as well)
-    json_match = re.search(r"```(?:json)?\s*(.*?)\s*(?:```|$)", content, re.DOTALL)
-    if json_match:
-        json_str = json_match.group(1).strip()
-    else:
-        json_str = content
+    # 1. Coba cari blok kode markdown (handle unclosed blocks dan case-insensitive)
+    # Menggunakan findall untuk menangani multiple blocks
+    markdown_blocks = re.findall(r"```(?:json)?\s*(.*?)\s*(?:```|$)", json_str, re.DOTALL | re.IGNORECASE)
 
+    if markdown_blocks:
+        for block in markdown_blocks:
+            cleaned_block = block.strip()
+            if not cleaned_block:
+                continue
+            try:
+                return json.loads(cleaned_block)
+            except json.JSONDecodeError:
+                # Coba cari JSON di dalam blok ini
+                m = re.search(r"(\{.*\}|\[.*\])", cleaned_block, re.DOTALL)
+                if m:
+                    try:
+                        return json.loads(m.group(1))
+                    except json.JSONDecodeError:
+                        pass
+        # Jika semua blok gagal secara direct, gunakan blok pertama untuk pembersihan lebih lanjut
+        json_str = markdown_blocks[0].strip()
+
+    # 2. Pembersihan manual: hapus kata 'json' di awal dan backticks (permintaan user)
+    json_str = re.sub(r"^\s*json\s*", "", json_str, flags=re.IGNORECASE).strip()
+    json_str = json_str.replace("`", "").strip()
+
+    # 3. Coba parse hasil pembersihan
     try:
         return json.loads(json_str)
     except json.JSONDecodeError:
-        # Percobaan terakhir: cari pattern { ... } atau [ ... ]
-        pattern_match = re.search(r"(\{.*\}|\[.*\])", json_str, re.DOTALL)
-        if pattern_match:
-            try:
-                return json.loads(pattern_match.group(1))
-            except json.JSONDecodeError:
-                pass
+        pass
 
-        # Jika gagal semua, raise error yang lebih deskriptif
-        raise ValueError(f"Gagal mem-parse JSON dari content: {content[:100]}...")
+    # 4. Fallback final: Cari pattern { ... } atau [ ... ] yang paling luar (greedy)
+    # Ini menangani kasus di mana LLM menyisipkan JSON di tengah narasi tanpa blok kode
+    patterns = [r"(\{.*\})", r"(\[.*\])"]
+    for pattern in patterns:
+        match = re.search(pattern, json_str, re.DOTALL)
+        if match:
+            candidate = match.group(1)
+            try:
+                return json.loads(candidate)
+            except json.JSONDecodeError:
+                # Terakhir: coba hapus trailing commas yang sering dihasilkan LLM
+                fixed = re.sub(r",\s*([\]}])", r"\1", candidate)
+                try:
+                    return json.loads(fixed)
+                except json.JSONDecodeError:
+                    pass
+
+    # Jika gagal semua, raise error yang lebih deskriptif
+    raise ValueError(f"Gagal mem-parse JSON dari content (100 chars): {content[:100]}...")
