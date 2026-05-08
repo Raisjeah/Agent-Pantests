@@ -5,7 +5,7 @@ import uuid
 from rich.console import Console
 from agent.graph import create_graph
 
-app = typer.Typer(help="🤖 AI Pentest Agent (LangChain + LangGraph)")
+app = typer.Typer(help="🤖 AI Pentest Agent (Deterministic Workflow)")
 console = Console()
 
 @app.command()
@@ -23,18 +23,18 @@ def scan(
         "scope": scope,
         "deep": deep,
         "findings": [],
-        "final_report": None,
-        "passive_recon": None,
-        "active_recon": None,
-        "scanning": None,
-        "enumeration": None,
-        "vuln_assess": None,
-        "weaponization": None,
-        "delivery": None,
+        "evidence": [],
+        "current_state": "START",
+        "status": "success",
+        "confidence": 0.0,
+        "recon": None,
+        "scan": None,
+        "enum": None,
+        "vuln_analysis": None,
         "exploitation": None,
-        "access": None
+        "report": None
     }
-    # Setiap kali scan, gunakan thread_id baru (UUID) untuk memastikan state isolasi
+
     thread_id = str(uuid.uuid4())
     config = {"configurable": {"thread_id": thread_id}}
     console.print(f"[dim]Thread ID: {thread_id}[/dim]")
@@ -47,6 +47,8 @@ def scan(
             events = graph.stream(current_state, config, stream_mode="values")
             for event in events:
                 current_state = event
+                if "current_state" in event:
+                    console.print(f"[blue]Phase Complete: {event['current_state']} (Status: {event.get('status')})[/blue]")
 
             # Check if we are at an interrupt point
             snapshot = graph.get_state(config)
@@ -55,12 +57,9 @@ def scan(
                 console.print(f"\n[bold yellow]INTERRUPT: Agent akan memasuki fase {next_node}[/bold yellow]")
 
                 # Show some context
-                if next_node == "weaponization":
+                if next_node == "exploitation":
                     findings = current_state.get("findings", [])
-                    console.print(f"Ditemukan {len(findings)} temuan potensial untuk di-weaponize.")
-                elif next_node == "exploitation":
-                    strategies = current_state.get("delivery", {}).get("strategies", [])
-                    console.print(f"Ditemukan {len(strategies)} strategi delivery untuk dieksploitasi.")
+                    console.print(f"Ditemukan {len(findings)} temuan potensial untuk dieksploitasi.")
 
                 confirm = typer.confirm("Lanjutkan ke fase berikutnya?")
                 if not confirm:
@@ -75,19 +74,16 @@ def scan(
 
         except Exception as e:
             console.print(f"[red]Error saat menjalankan graph: {e}[/red]")
+            # raise e # Useful for debugging
             raise typer.Exit(1)
 
     # Final report processing
-    exploitation_data = current_state.get("exploitation", {})
-    if exploitation_data.get("status") == "failed":
-        console.print(f"\n[bold red]Exploitation FAILED: {exploitation_data.get('reason')}[/bold red]")
-
-    access_plan = current_state.get("access")
-    if access_plan:
-        console.print("\n[bold green]Pentest Selesai. Hasil Akses Akhir:[/bold green]")
-        console.print_json(json.dumps(access_plan, indent=2))
+    report = current_state.get("report", {})
+    if report:
+        console.print("\n[bold green]Pentest Selesai. Laporan Akhir:[/bold green]")
+        console.print_json(json.dumps(report, indent=2))
     else:
-        console.print("[yellow]Pentest selesai tanpa hasil akses akhir.[/yellow]")
+        console.print("[yellow]Pentest selesai tanpa laporan akhir.[/yellow]")
 
     if output:
         with open(output, "w") as f:

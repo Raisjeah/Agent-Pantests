@@ -9,42 +9,42 @@ from agent.logger import AILogger
 from utils.parser import parse_llm_json
 
 logger = AILogger("Recon")
-
-# Load prompt with absolute path relative to this file
 current_dir = Path(__file__).parent.parent
 prompt_path = current_dir / "prompts" / "recon.yaml"
 
-with open(prompt_path) as f:
-    prompt_cfg = yaml.safe_load(f)
-prompt = ChatPromptTemplate.from_messages(prompt_cfg["messages"])
-
 def recon_node(state):
     target = state["target"]
-    logger.info(f"Recon dimulai: {target}")
+    logger.info(f"RECON phase started for {target}")
 
-    # Run nmap
+    # Use nmap for basic host discovery
     try:
-        nmap_res = nmap_tool.invoke({"target": target})
+        nmap_res = nmap_tool.invoke({"target": target, "ports": "80,443,22,21,25,53,8080"})
     except Exception as e:
-        logger.error(f"nmap gagal: {e}")
+        logger.error(f"nmap failed: {e}")
         nmap_res = {"error": str(e)}
 
-    # Run nuclei
+    # Use nuclei for service identification
     try:
-        nuclei_res = nuclei_tool.invoke({"target": target, "template": "services"})
+        nuclei_res = nuclei_tool.invoke({"target": target, "template": "network/services"})
     except Exception as e:
-        logger.error(f"nuclei gagal: {e}")
+        logger.error(f"nuclei failed: {e}")
         nuclei_res = {"error": str(e)}
 
-    # LLM analysis - Check if we have valid results to analyze
+    # Check for evidence
     has_nmap = nmap_res and "error" not in nmap_res and nmap_res.get("services")
     has_nuclei = nuclei_res and "error" not in nuclei_res and nuclei_res.get("nuclei_results")
 
-    findings = []
     if not (has_nmap or has_nuclei):
-        logger.warning(f"Recon tidak menemukan hasil valid dari nmap atau nuclei untuk {target}. Skip LLM analysis.")
-        recon_data = {"nmap": nmap_res, "nuclei": nuclei_res}
-        return {"findings": [], "recon_data": recon_data}
+        logger.warning(f"No evidence found in RECON for {target}")
+        return {
+            "current_state": "RECON",
+            "status": "empty_result",
+            "recon": {"nmap": nmap_res, "nuclei": nuclei_res}
+        }
+
+    with open(prompt_path) as f:
+        prompt_cfg = yaml.safe_load(f)
+    prompt = ChatPromptTemplate.from_messages(prompt_cfg["messages"])
 
     chain = prompt | llm
     try:
@@ -54,13 +54,15 @@ def recon_node(state):
             "nuclei_output": json.dumps(nuclei_res, indent=2)
         })
         parsed = parse_llm_json(response.content)
-        if isinstance(parsed, dict):
-            findings = parsed.get("findings", [])
-        elif isinstance(parsed, list):
-            findings = parsed
-    except Exception as e:
-        logger.error(f"LLM analysis error in Recon: {e}")
 
-    recon_data = {"nmap": nmap_res, "nuclei": nuclei_res}
-    logger.info(f"Recon selesai: {len(findings)} temuan mentah")
-    return {"findings": findings, "recon_data": recon_data}
+        return {
+            "current_state": "RECON",
+            "status": parsed.get("status", "success"),
+            "confidence": parsed.get("confidence", 0.5),
+            "findings": parsed.get("findings", []),
+            "evidence": [{"tool": "recon", "data": {"nmap": nmap_res, "nuclei": nuclei_res}}],
+            "recon": parsed
+        }
+    except Exception as e:
+        logger.error(f"LLM error in RECON: {e}")
+        return {"current_state": "RECON", "status": "failed", "status_reason": str(e)}

@@ -1,19 +1,29 @@
-from typing import TypedDict, Optional, List, Annotated
+from typing import TypedDict, Optional, List, Annotated, Any
 import operator
 
 class AgentState(TypedDict):
+    # Core target info
     target: str
     scope: str
     deep: bool
+
+    # Workflow control
+    current_state: str # RECON, SCAN, ENUM, VULN_ANALYSIS, EXPLOITATION, REPORT, ERROR
+    status: str        # success, failed, blocked, insufficient_evidence, empty_result
+    status_reason: Optional[str]
+    confidence: float
+
+    # Evidence & Data
     findings: Annotated[List[dict], operator.add]
-    final_report: Optional[dict]
-    # 9 Node Data tracking
-    passive_recon: Optional[dict]
-    active_recon: Optional[dict]
-    scanning: Optional[dict]
-    enumeration: Optional[dict]
-    vuln_assess: Optional[dict]
-    weaponization: Optional[dict]
-    delivery: Optional[dict]
+    evidence: Annotated[List[dict], operator.add]
+
+    # Node-specific results
+    recon: Optional[dict]
+    scan: Optional[dict]
+    enum: Optional[dict]
+    vuln_analysis: Optional[dict]
     exploitation: Optional[dict]
-    access: Optional[dict]
+    report: Optional[dict]
+
+    # Compatibility with older nodes if needed during transition
+    final_report: Optional[dict]
