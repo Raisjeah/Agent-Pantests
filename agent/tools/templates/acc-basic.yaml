@@ -1,0 +1,19 @@
+id: acc-basic-recon
+info:
+  name: ACC Basic Recon Template
+  author: AI Agent Chains Capilot
+  severity: info
+  description: Menemukan service dasar untuk fase RECON.
+
+requests:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+    matchers:
+      - type: status
+        status:
+          - 200
+          - 301
+          - 302
+          - 404
+          - 403

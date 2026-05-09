@@ -1,7 +1,10 @@
 import json
 import re
-from typing import Any, Dict, Union
+import logging
+from typing import Any, Dict, Union, List
 from urllib.parse import urlparse
+
+logger = logging.getLogger(__name__)
 
 def extract_host(target: str) -> str:
     """
@@ -13,11 +16,8 @@ def extract_host(target: str) -> str:
 
     # Handle protocol-less URL patterns like example.com/path
     if "/" in target and not (target.startswith("http://") or target.startswith("https://")):
-        # Simple heuristic: if it has a slash but no protocol, it might be a path
-        # Check if it looks like an IP/domain before the slash
         parts = target.split("/", 1)
         potential_host = parts[0]
-        # Very basic check for domain/IP: contains dot and no space
         if "." in potential_host and " " not in potential_host:
              target = "http://" + target
 
@@ -30,51 +30,66 @@ def extract_host(target: str) -> str:
 
     return target
 
-def parse_llm_json(content: str) -> Union[Dict[str, Any], list]:
+def clean_json_string(s: str) -> str:
+    """Pembersihan string JSON dari noise umum LLM."""
+    # Hapus komentar //
+    s = re.sub(r'//.*?\n', '\n', s)
+    # Hapus trailing commas
+    s = re.sub(r",\s*([\]}])", r"\1", s)
+    # Ganti smart quotes jika ada
+    s = s.replace('“', '"').replace('”', '"').replace('‘', "'").replace('’', "'")
+    return s.strip()
+
+def parse_llm_json(content: str) -> Union[Dict[str, Any], List[Any]]:
     """
-    Ekstrak dan parse JSON dari output LLM secara robust menggunakan logika final_fix_v2.
+    Ekstrak dan parse JSON dari output LLM secara robust.
     Mendukung format markdown multiple blocks, pembersihan artefak,
     dan fallback greedy untuk menangani noise percakapan.
     """
     if not content:
         return {}
 
-    # 1. Cari blok kode markdown (handle unclosed blocks dan multiple blocks)
-    markdown_blocks = re.findall(r"```(?:json)?\s*(.*?)\s*(?:```|$)", content, re.DOTALL | re.IGNORECASE)
-
     candidates = []
-    if markdown_blocks:
-        for block in markdown_blocks:
-            cleaned = block.strip()
-            if cleaned:
-                # Bersihkan kata 'json' di awal dan backticks di dalam blok
-                cleaned = re.sub(r"^\s*json\s*", "", cleaned, flags=re.IGNORECASE).strip()
-                cleaned = cleaned.replace("`", "").strip()
-                candidates.append(cleaned)
 
-    # 2. Tambahkan fallback greedy dari seluruh konten
-    # Ini menangani kasus di mana LLM menyisipkan JSON tanpa blok kode
-    patterns = [r"(\{.*\})", r"(\[.*\])"]
-    for pattern in patterns:
-        match = re.search(pattern, content, re.DOTALL)
-        if match:
-            candidate = match.group(1).strip()
-            # Bersihkan dari backticks jika ada
-            candidate = candidate.replace("`", "").strip()
-            if candidate not in candidates:
-                candidates.append(candidate)
+    # 1. Cari blok kode markdown
+    markdown_blocks = re.findall(r"```(?:json)?\s*(.*?)\s*(?:```|$)", content, re.DOTALL | re.IGNORECASE)
+    for block in markdown_blocks:
+        cleaned = block.strip()
+        if cleaned:
+            # Bersihkan kata 'json' di awal
+            cleaned = re.sub(r"^\s*json\s*", "", cleaned, flags=re.IGNORECASE).strip()
+            candidates.append(cleaned)
 
-    # 3. Iterasi candidates dan coba parse
+    # 2. Fallback greedy: cari { ... } atau [ ... ] yang paling besar
+    # Kita cari semua match dan ambil yang terpanjang
+    dict_matches = re.findall(r"(\{.*\})", content, re.DOTALL)
+    list_matches = re.findall(r"(\[.*\])", content, re.DOTALL)
+
+    for m in dict_matches + list_matches:
+        candidates.append(m.strip())
+
+    # Sort candidates by length (descending) to try the most complete ones first
+    candidates.sort(key=len, reverse=True)
+
+    errors = []
     for candidate in candidates:
+        candidate = clean_json_string(candidate)
         try:
             return json.loads(candidate)
-        except json.JSONDecodeError:
-            # Coba perbaiki trailing commas
-            fixed = re.sub(r",\s*([\]}])", r"\1", candidate)
+        except json.JSONDecodeError as e:
+            # Terakhir, coba bersihkan control characters yang tidak valid
             try:
+                # Menghapus non-printable characters kecuali whitespace standar
+                fixed = "".join(char for char in candidate if ord(char) >= 32 or char in "\n\r\t")
                 return json.loads(fixed)
             except json.JSONDecodeError:
+                errors.append(str(e))
                 continue
 
-    # Jika gagal semua, raise error deskriptif
-    raise ValueError(f"Gagal mem-parse JSON dari content ({len(content)} chars): {content}")
+    # Jika semua gagal, coba json.loads pada string murni jika terlihat seperti JSON
+    try:
+        return json.loads(clean_json_string(content.strip()))
+    except json.JSONDecodeError:
+        pass
+
+    raise ValueError(f"Gagal mem-parse JSON. Content length: {len(content)}. Errors: {'; '.join(errors[:3])}. Content: {content[:500]}...")
