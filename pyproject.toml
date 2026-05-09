@@ -17,7 +17,8 @@ dependencies = [
     "langchain>=0.3",
     "langchain-google-genai>=1.0",
     "langgraph>=0.2",
-    "langgraph-checkpoint-sqlite>=2.0"
+    "langgraph-checkpoint-sqlite>=2.0",
+    "pyfiglet>=1.0"
 ]
 
 [project.scripts]

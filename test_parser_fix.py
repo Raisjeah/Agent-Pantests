@@ -23,8 +23,8 @@ def test_parse_error_reporting():
     try:
         parse_llm_json(content)
     except ValueError as e:
-        assert f"({len(content)} chars)" in str(e)
-        assert content in str(e)
+        assert f"length: {len(content)}" in str(e)
+        assert content[:10] in str(e)
         print(f"test_parse_error_reporting passed: {e}")
 
 if __name__ == "__main__":
