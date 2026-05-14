@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 import yaml
 from langchain_core.prompts import ChatPromptTemplate
-from agent.llm import llm
+from agent.llm import get_llm
 from agent.tools.nuclei import nuclei_tool
 from agent.logger import AILogger
 from agent.normalization import normalize_tool_output
@@ -15,7 +15,8 @@ prompt_path = current_dir / "prompts" / "enumeration.yaml"
 
 def enumeration_node(state):
     target = state["target"]
-    logger.info(f"ENUM phase started for {target}")
+    provider = state.get("model_provider")
+    logger.info(f"ENUM phase started for {target} using {provider}")
 
     # Run specific nuclei templates for deep enumeration
     try:
@@ -46,6 +47,8 @@ def enumeration_node(state):
         "findings": [f.dict() for f in nuclei_state.findings]
     }
 
+    # Dynamic LLM selection
+    llm = get_llm(provider)
     chain = prompt | llm
     try:
         response = chain.invoke({

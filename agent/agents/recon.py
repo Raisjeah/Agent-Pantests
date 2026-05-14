@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 import yaml
 from langchain_core.prompts import ChatPromptTemplate
-from agent.llm import llm
+from agent.llm import get_llm
 from agent.tools.nmap import nmap_tool
 from agent.tools.nuclei import nuclei_tool
 from agent.logger import AILogger
@@ -16,7 +16,8 @@ prompt_path = current_dir / "prompts" / "recon.yaml"
 
 def recon_node(state):
     target = state["target"]
-    logger.info(f"RECON phase started for {target}")
+    provider = state.get("model_provider")
+    logger.info(f"RECON phase started for {target} using {provider}")
 
     # Use nmap for basic host discovery
     try:
@@ -61,6 +62,8 @@ def recon_node(state):
         "findings": [f.dict() for f in nmap_state.findings + nuclei_state.findings]
     }
 
+    # Dynamic LLM selection
+    llm = get_llm(provider)
     chain = prompt | llm
     try:
         response = chain.invoke({

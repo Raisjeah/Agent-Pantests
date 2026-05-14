@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 import yaml
 from langchain_core.prompts import ChatPromptTemplate
-from agent.llm import llm
+from agent.llm import get_llm
 from agent.tools.nmap import nmap_tool
 from agent.tools.nuclei import nuclei_tool
 from agent.logger import AILogger
@@ -16,7 +16,8 @@ prompt_path = current_dir / "prompts" / "scanning.yaml"
 
 def scanning_node(state):
     target = state["target"]
-    logger.info(f"SCAN phase started for {target}")
+    provider = state.get("model_provider")
+    logger.info(f"SCAN phase started for {target} using {provider}")
 
     try:
         nmap_res = nmap_tool.invoke({"target": target, "ports": "1-1000"})
@@ -59,6 +60,8 @@ def scanning_node(state):
         "findings": [f.dict() for f in nmap_state.findings + nuclei_state.findings]
     }
 
+    # Dynamic LLM selection
+    llm = get_llm(provider)
     chain = prompt | llm
     try:
         response = chain.invoke({

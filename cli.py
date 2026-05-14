@@ -49,6 +49,7 @@ def scan(
     target: str = typer.Argument(..., help="Target IP/domain/URL/path"),
     scope: str = typer.Option("all", help="Scope: web, os, mobile, code (comma-separated)"),
     deep: bool = typer.Option(False, "--deep", help="Deep scan mode"),
+    model: str = typer.Option("google", help="AI Model Provider (google, anthropic)"),
     output: str = typer.Option(None, help="Simpan laporan ke file JSON")
 ):
     """Jalankan pemindaian keamanan otomatis dengan tampilan modern."""
@@ -56,6 +57,7 @@ def scan(
 
     console.print(f"[bold white]Target:[/bold white] [red]{target}[/red]")
     console.print(f"[bold white]Scope :[/bold white] [dim]{scope}[/dim]")
+    console.print(f"[bold white]Model :[/bold white] [dim]{model}[/dim]")
     console.print(f"[bold white]Mode  :[/bold white] [dim]{'Deep' if deep else 'Standard'}[/dim]")
     console.print("-" * 40)
 
@@ -64,6 +66,7 @@ def scan(
         "target": target,
         "scope": scope,
         "deep": deep,
+        "model_provider": model,
         "findings": [],
         "evidence": [],
         "current_state": "START",

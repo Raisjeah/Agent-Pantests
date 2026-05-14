@@ -6,6 +6,7 @@ class AgentState(TypedDict):
     target: str
     scope: str
     deep: bool
+    model_provider: Optional[str]
 
     # Workflow control
     current_state: str # RECON, SCAN, ENUM, VULN_ANALYSIS, EXPLOITATION, REPORT, ERROR
