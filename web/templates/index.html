@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Pentest Dashboard | Cyber Ops</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500&display=swap');
+        body { background-color: #0a0a0a; color: #e5e5e5; font-family: 'Fira Code', monospace; }
+        .cyber-panel { background: rgba(20, 20, 20, 0.9); border: 1px solid #333; border-left: 4px solid #800000; }
+        .cyber-red { color: #800000; }
+        .cyber-bg-red { background-color: #800000; }
+        .glow { box-shadow: 0 0 10px rgba(128, 0, 0, 0.5); }
+        .chat-log::-webkit-scrollbar { width: 6px; }
+        .chat-log::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+        .terminal-log { color: #00ff00; font-size: 0.85rem; }
+        .phase-step { transition: all 0.3s ease; }
+        .phase-active { color: #ff0000; border-color: #ff0000; transform: scale(1.1); }
+        .phase-complete { color: #00ff00; border-color: #00ff00; }
+    </style>
+</head>
+<body class="p-4">
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <header class="flex justify-between items-center mb-6 cyber-panel p-4 glow">
+            <div>
+                <h1 class="text-2xl font-bold cyber-red"><i class="fas fa-biohazard mr-2"></i>ACC AI PENTEST</h1>
+                <p class="text-xs text-gray-500">Deterministic Security Workflow Engine</p>
+            </div>
+            <div id="status-badge" class="px-3 py-1 rounded text-xs bg-gray-800 border border-gray-700">SYSTEM READY</div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Left: Config & Control -->
+            <div class="lg:col-span-1 space-y-6">
+                <section class="cyber-panel p-4">
+                    <h2 class="text-lg font-bold mb-4 border-b border-gray-800 pb-2"><i class="fas fa-cog mr-2"></i>SCAN CONFIG</h2>
+                    <form id="scan-form" class="space-y-4">
+                        <div>
+                            <label class="block text-xs mb-1">TARGET URL/IP</label>
+                            <input type="text" name="target" placeholder="https://example.com" class="w-full bg-black border border-gray-700 p-2 text-sm focus:border-red-600 outline-none" required>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs mb-1">MODEL</label>
+                                <select name="model" class="w-full bg-black border border-gray-700 p-2 text-sm">
+                                    <option value="google">Gemini 1.5</option>
+                                    <option value="anthropic">Claude 3.5</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs mb-1">SCOPE</label>
+                                <input type="text" name="scope" value="all" class="w-full bg-black border border-gray-700 p-2 text-sm">
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <input type="checkbox" name="deep" id="deep">
+                            <label for="deep" class="text-xs">DEEP SCAN MODE</label>
+                        </div>
+                        <button type="submit" class="w-full cyber-bg-red hover:bg-red-700 p-3 font-bold text-sm glow transition-all">
+                            INITIALIZE PENTEST
+                        </button>
+                    </form>
+                </section>
+
+                <!-- Workflow Visualization -->
+                <section class="cyber-panel p-4">
+                    <h2 class="text-lg font-bold mb-4 border-b border-gray-800 pb-2"><i class="fas fa-project-diagram mr-2"></i>WORKFLOW</h2>
+                    <div class="space-y-4 text-sm" id="workflow-steps">
+                        <div data-phase="RECON" class="phase-step border-l-2 border-gray-800 pl-4 py-1">1. RECONNAISSANCE</div>
+                        <div data-phase="SCAN" class="phase-step border-l-2 border-gray-800 pl-4 py-1">2. NETWORK SCANNING</div>
+                        <div data-phase="ENUM" class="phase-step border-l-2 border-gray-800 pl-4 py-1">3. ENUMERATION</div>
+                        <div data-phase="VULN_ANALYSIS" class="phase-step border-l-2 border-gray-800 pl-4 py-1">4. VULN ANALYSIS</div>
+                        <div data-phase="EXPLOITATION" class="phase-step border-l-2 border-gray-800 pl-4 py-1">5. EXPLOITATION</div>
+                        <div data-phase="REPORT" class="phase-step border-l-2 border-gray-800 pl-4 py-1">6. FINAL REPORT</div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Middle & Right: Logs & Results -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- Chat-style Log -->
+                <section class="cyber-panel p-4 h-[400px] flex flex-col">
+                    <h2 class="text-lg font-bold mb-4 border-b border-gray-800 pb-2"><i class="fas fa-terminal mr-2"></i>AGENT LOGS</h2>
+                    <div id="chat-log" class="chat-log flex-1 overflow-y-auto space-y-2 mb-4 pr-2">
+                        <div class="text-gray-500 text-xs italic">Awaiting initialization...</div>
+                    </div>
+                    <div id="progress-container" class="hidden">
+                        <div class="w-full bg-gray-800 h-1 rounded overflow-hidden">
+                            <div id="progress-bar" class="bg-red-600 h-full w-0 transition-all"></div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Findings Cards -->
+                <section class="cyber-panel p-4">
+                    <div class="flex justify-between items-center mb-4 border-b border-gray-800 pb-2">
+                        <h2 class="text-lg font-bold"><i class="fas fa-shield-virus mr-2"></i>SECURITY FINDINGS</h2>
+                        <div id="report-controls" class="hidden flex space-x-2">
+                            <button onclick="downloadReport('html')" class="text-xs bg-gray-800 p-1 px-2 border border-gray-700 hover:bg-gray-700">HTML</button>
+                            <button onclick="downloadReport('pdf')" class="text-xs bg-gray-800 p-1 px-2 border border-gray-700 hover:bg-gray-700">PDF</button>
+                        </div>
+                    </div>
+                    <div id="findings-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="text-gray-600 text-sm col-span-2 text-center py-8">Scan results will appear here.</div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals / Overlays -->
+    <div id="hitl-overlay" class="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center hidden">
+        <div class="cyber-panel p-8 max-w-md w-full glow">
+            <h2 class="text-xl font-bold cyber-red mb-4"><i class="fas fa-exclamation-triangle mr-2"></i>SAFETY INTERRUPT</h2>
+            <p class="text-sm mb-6">The agent has generated exploitation commands and requires manual authorization to proceed.</p>
+            <div class="bg-black p-4 text-xs font-mono mb-6 border border-gray-800" id="pending-commands">
+                # No commands pending
+            </div>
+            <div class="flex space-x-4">
+                <button onclick="respondHITL(true)" class="flex-1 cyber-bg-red p-2 font-bold text-sm hover:bg-red-700">AUTHORIZE</button>
+                <button onclick="respondHITL(false)" class="flex-1 bg-gray-800 p-2 font-bold text-sm hover:bg-gray-700">ABORT</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentScanId = null;
+        let socket = null;
+
+        document.getElementById('scan-form').onsubmit = async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+
+            // UI Reset
+            document.getElementById('chat-log').innerHTML = '';
+            document.getElementById('findings-grid').innerHTML = '';
+            document.getElementById('workflow-steps').querySelectorAll('.phase-step').forEach(el => el.classList.remove('phase-active', 'phase-complete'));
+            document.getElementById('progress-container').classList.remove('hidden');
+
+            addLog("System", "Initializing security engine...", "cyber-red");
+
+            try {
+                const resp = await fetch('/api/scan', { method: 'POST', body: formData });
+                const data = await resp.json();
+                currentScanId = data.scan_id;
+                connectWebSocket(currentScanId);
+            } catch (err) {
+                addLog("Error", "Failed to connect to backend", "text-red-500");
+            }
+        };
+
+        function connectWebSocket(scanId) {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            socket = new WebSocket(`${protocol}//${window.location.host}/ws/${scanId}`);
+
+            socket.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+
+                if (data.type === 'update') {
+                    handleUpdate(data);
+                } else if (data.type === 'interrupt') {
+                    handleInterrupt(data);
+                } else if (data.type === 'completed') {
+                    addLog("System", "Pentest completed. Report ready.", "text-green-500");
+                    document.getElementById('status-badge').innerText = "SCAN COMPLETE";
+                    document.getElementById('status-badge').classList.add('bg-green-900');
+                    document.getElementById('report-controls').classList.remove('hidden');
+                } else if (data.type === 'error') {
+                    addLog("Agent", `Fatal Error: ${data.message}`, "text-red-500");
+                }
+            };
+        }
+
+        function handleInterrupt(data) {
+            addLog("System", `Interrupt at phase: ${data.node}. Awaiting authorization...`, "text-yellow-500");
+            const overlay = document.getElementById('hitl-overlay');
+            const cmdBox = document.getElementById('pending-commands');
+
+            // Extract findings/logs to show
+            if (data.data && data.data.exploitation) {
+                 const logs = data.data.exploitation.plan.commands || [];
+                 cmdBox.innerHTML = logs.length > 0 ? logs.join('<br>') : '# Analysis only';
+            } else {
+                 cmdBox.innerHTML = '# Final review before report';
+            }
+
+            overlay.classList.remove('hidden');
+        }
+
+        function handleUpdate(data) {
+            if (data.log) addLog("Agent", data.log);
+
+            // Update Phase Visualization
+            const phase = data.phase;
+            const steps = document.getElementById('workflow-steps').querySelectorAll('.phase-step');
+            let foundCurrent = false;
+
+            steps.forEach(el => {
+                if (el.dataset.phase === phase) {
+                    el.classList.add('phase-active');
+                    foundCurrent = true;
+                } else if (!foundCurrent) {
+                    el.classList.add('phase-complete');
+                    el.classList.remove('phase-active');
+                } else {
+                    el.classList.remove('phase-active', 'phase-complete');
+                }
+            });
+
+            // Update Findings
+            if (data.findings && data.findings.length > 0) {
+                const grid = document.getElementById('findings-grid');
+                grid.innerHTML = '';
+                data.findings.forEach(f => {
+                    const card = document.createElement('div');
+                    card.className = 'cyber-panel p-3 text-xs bg-black';
+                    card.innerHTML = `
+                        <div class="flex justify-between font-bold cyber-red mb-1">
+                            <span>${f.type.toUpperCase()}</span>
+                            <span class="text-gray-500">${f.severity || 'info'}</span>
+                        </div>
+                        <div class="text-sm font-bold mb-2">${f.value}</div>
+                        <div class="text-gray-400 italic">${f.evidence}</div>
+                    `;
+                    grid.appendChild(card);
+                });
+            }
+        }
+
+        function addLog(sender, message, colorClass = "text-gray-300") {
+            const log = document.getElementById('chat-log');
+            const entry = document.createElement('div');
+            entry.className = `text-sm ${colorClass}`;
+            const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            entry.innerHTML = `<span class="text-gray-600 text-[10px]">[${time}]</span> <span class="font-bold">${sender}:</span> ${message}`;
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function downloadReport(format) {
+            window.location.href = `/api/report/${currentScanId}/${format}`;
+        }
+
+        function respondHITL(approved) {
+            socket.send(JSON.stringify({ type: 'confirm', approved: approved }));
+            document.getElementById('hitl-overlay').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
