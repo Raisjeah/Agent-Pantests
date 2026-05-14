@@ -4,6 +4,7 @@ import json
 import shutil
 import os
 from pathlib import Path
+from datetime import datetime
 from utils.parser import extract_host
 
 @tool
@@ -13,12 +14,25 @@ def nuclei_tool(target: str, template: str = "services") -> dict:
     Template bisa berupa nama default nuclei (misal: 'services')
     atau path ke template custom di agent/tools/templates/.
     """
+    timestamp = datetime.now().isoformat()
+    result = {
+        "tool": "nuclei",
+        "target": target,
+        "status": "failed",
+        "timestamp": timestamp,
+        "raw_output": "",
+        "parsed_output": {"nuclei_results": [], "template_used": template},
+        "errors": []
+    }
+
     if not shutil.which("nuclei"):
-        return {"error": "nuclei tidak ditemukan di sistem."}
+        result["errors"].append("nuclei tidak ditemukan di sistem.")
+        return result
 
     # Gunakan host saja untuk template 'services' agar scanning lebih akurat
+    clean_target = target
     if template == "services":
-        target = extract_host(target)
+        clean_target = extract_host(target)
 
     # Cek apakah template adalah file custom
     template_path = template
@@ -30,24 +44,29 @@ def nuclei_tool(target: str, template: str = "services") -> dict:
         elif (custom_dir / template).exists():
              template_path = str(custom_dir / template)
 
-    cmd = ["nuclei", "-target", target, "-t", template_path, "-jsonl", "-silent"]
+    result["parsed_output"]["template_used"] = template_path
+
+    cmd = ["nuclei", "-target", clean_target, "-t", template_path, "-jsonl", "-silent"]
     stdout, stderr = run_command(cmd, timeout=300)
+    result["raw_output"] = stdout
 
     if "no templates" in stderr.lower() or "could not load templates" in stderr.lower():
-        return {"error": f"Nuclei: Template '{template}' tidak ditemukan.", "raw_stderr": stderr}
+        result["errors"].append(f"Nuclei: Template '{template}' tidak ditemukan.")
+        result["errors"].append(stderr)
+        return result
 
-    results = []
+    findings = []
     if stdout:
         for line in stdout.strip().split('\n'):
             if line.strip():
                 try:
-                    results.append(json.loads(line))
+                    findings.append(json.loads(line))
                 except json.JSONDecodeError:
                     continue
 
-    return {
-        "nuclei_results": results,
-        "count": len(results),
-        "template_used": template_path,
-        "error": stderr if stderr and not results else None
-    }
+    result["parsed_output"]["nuclei_results"] = findings
+    result["status"] = "success" if findings else "empty"
+    if stderr:
+        result["errors"].append(stderr)
+
+    return result

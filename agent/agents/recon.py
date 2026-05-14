@@ -6,7 +6,9 @@ from agent.llm import llm
 from agent.tools.nmap import nmap_tool
 from agent.tools.nuclei import nuclei_tool
 from agent.logger import AILogger
-from utils.parser import parse_llm_json
+from agent.normalization import normalize_tool_output
+from agent.agents.schemas import LLMResponse
+from utils.parser import safe_json_parse
 
 logger = AILogger("Recon")
 current_dir = Path(__file__).parent.parent
@@ -21,36 +23,30 @@ def recon_node(state):
         nmap_res = nmap_tool.invoke({"target": target, "ports": "80,443,22,21,25,53,8080"})
     except Exception as e:
         logger.error(f"nmap failed: {e}")
-        nmap_res = {"error": str(e)}
+        nmap_res = {"error": str(e), "tool": "nmap", "target": target}
 
     # Use nuclei for service identification
     try:
         nuclei_res = nuclei_tool.invoke({"target": target, "template": "network/services"})
     except Exception as e:
         logger.error(f"nuclei failed: {e}")
-        nuclei_res = {"error": str(e)}
+        nuclei_res = {"error": str(e), "tool": "nuclei", "target": target}
 
-    # Check for evidence
-    has_nmap = nmap_res and "error" not in nmap_res and nmap_res.get("services")
-    has_nuclei = nuclei_res and "error" not in nuclei_res and nuclei_res.get("nuclei_results")
+    # Normalize data
+    nmap_state = normalize_tool_output(nmap_res)
+    nuclei_state = normalize_tool_output(nuclei_res)
 
-    if not (has_nmap or has_nuclei):
+    has_evidence = nmap_state.findings or nuclei_state.findings
+
+    if not has_evidence:
         logger.warning(f"No evidence found in RECON for {target}")
-        # Log detail tools result untuk debugging
-        if "error" in nmap_res:
-            logger.error(f"Nmap Error: {nmap_res['error']}")
-        else:
-            logger.info(f"Nmap found 0 open ports.")
-
-        if "error" in nuclei_res:
-            logger.error(f"Nuclei Error: {nuclei_res['error']}")
-        else:
-            logger.info(f"Nuclei found 0 results.")
-
         return {
             "current_state": "RECON",
             "status": "empty_result",
-            "evidence": [{"tool": "recon", "data": {"nmap": nmap_res, "nuclei": nuclei_res}}],
+            "evidence": [
+                {"tool": "nmap", "data": nmap_res},
+                {"tool": "nuclei", "data": nuclei_res}
+            ],
             "recon": {"nmap": nmap_res, "nuclei": nuclei_res}
         }
 
@@ -58,21 +54,31 @@ def recon_node(state):
         prompt_cfg = yaml.safe_load(f)
     prompt = ChatPromptTemplate.from_messages(prompt_cfg["messages"])
 
+    # Prepare normalized data for LLM
+    llm_input_data = {
+        "ports": [p.dict() for p in nmap_state.ports],
+        "vulnerabilities": [v.dict() for v in nuclei_state.vulnerabilities],
+        "findings": [f.dict() for f in nmap_state.findings + nuclei_state.findings]
+    }
+
     chain = prompt | llm
     try:
         response = chain.invoke({
             "target": target,
-            "nmap_output": json.dumps(nmap_res, indent=2),
-            "nuclei_output": json.dumps(nuclei_res, indent=2)
+            "evidence_json": json.dumps(llm_input_data, indent=2)
         })
-        parsed = parse_llm_json(response.content)
+        parsed_obj = safe_json_parse(response.content, LLMResponse)
+        parsed = parsed_obj.dict()
 
         return {
             "current_state": "RECON",
             "status": parsed.get("status", "success"),
             "confidence": parsed.get("confidence", 0.5),
             "findings": parsed.get("findings", []),
-            "evidence": [{"tool": "recon", "data": {"nmap": nmap_res, "nuclei": nuclei_res}}],
+            "evidence": [
+                {"tool": "nmap", "data": nmap_res},
+                {"tool": "nuclei", "data": nuclei_res}
+            ],
             "recon": parsed
         }
     except Exception as e:

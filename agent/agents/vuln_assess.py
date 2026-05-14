@@ -7,7 +7,9 @@ from agent.tools.sqlmap import sqlmap_tool
 from agent.tools.trivy import trivy_tool
 from agent.tools.semgrep import semgrep_tool
 from agent.logger import AILogger
-from utils.parser import parse_llm_json
+from agent.normalization import normalize_tool_output
+from agent.agents.schemas import LLMResponse
+from utils.parser import safe_json_parse
 
 logger = AILogger("VulnAssess")
 current_dir = Path(__file__).parent.parent
@@ -17,35 +19,43 @@ def vuln_assess_node(state):
     target = state["target"]
     logger.info(f"VULN_ANALYSIS phase started for {target}")
 
-    results = {}
+    results = []
 
     # Run tools independently
     if target.startswith("http"):
         try:
-            results["sqlmap"] = sqlmap_tool.invoke({"url": target})
+            results.append(sqlmap_tool.invoke({"url": target}))
         except Exception as e:
             logger.error(f"SQLMap error: {e}")
-            results["sqlmap"] = {"error": str(e)}
+            results.append({"error": str(e), "tool": "sqlmap", "target": target})
     else:
         try:
-            results["trivy"] = trivy_tool.invoke({"target": target})
+            results.append(trivy_tool.invoke({"target": target}))
         except Exception as e:
             logger.error(f"Trivy error: {e}")
-            results["trivy"] = {"error": str(e)}
+            results.append({"error": str(e), "tool": "trivy", "target": target})
 
         try:
-            results["semgrep"] = semgrep_tool.invoke({"target": target})
+            results.append(semgrep_tool.invoke({"target": target}))
         except Exception as e:
             logger.error(f"Semgrep error: {e}")
-            results["semgrep"] = {"error": str(e)}
+            results.append({"error": str(e), "tool": "semgrep", "target": target})
 
-    has_data = any(res for res in results.values() if res and "error" not in res)
+    # Normalize data
+    normalized_findings = []
+    normalized_vulnerabilities = []
 
-    if not has_data:
+    for res in results:
+        norm_state = normalize_tool_output(res)
+        normalized_findings.extend([f.dict() for f in norm_state.findings])
+        normalized_vulnerabilities.extend([v.dict() for v in norm_state.vulnerabilities])
+
+    if not normalized_findings:
         logger.warning(f"No evidence found in VULN_ANALYSIS for {target}")
         return {
             "current_state": "VULN_ANALYSIS",
             "status": "empty_result",
+            "evidence": [{"tool": r.get("tool"), "data": r} for r in results],
             "vuln_analysis": results
         }
 
@@ -53,13 +63,20 @@ def vuln_assess_node(state):
         prompt_cfg = yaml.safe_load(f)
     prompt = ChatPromptTemplate.from_messages(prompt_cfg["messages"])
 
+    # Prepare normalized data for LLM
+    llm_input_data = {
+        "vulnerabilities": normalized_vulnerabilities,
+        "findings": normalized_findings
+    }
+
     chain = prompt | llm
     try:
         response = chain.invoke({
             "target": target,
-            "tool_results": json.dumps(results, indent=2)
+            "evidence_json": json.dumps(llm_input_data, indent=2)
         })
-        parsed = parse_llm_json(response.content)
+        parsed_obj = safe_json_parse(response.content, LLMResponse)
+        parsed = parsed_obj.dict()
 
         # Enforce confidence threshold for status
         status = parsed.get("status", "success")
@@ -73,7 +90,7 @@ def vuln_assess_node(state):
             "status": status,
             "confidence": confidence,
             "findings": parsed.get("findings", []),
-            "evidence": [{"tool": "vuln_analysis", "data": results}],
+            "evidence": [{"tool": r.get("tool"), "data": r} for r in results],
             "vuln_analysis": parsed
         }
     except Exception as e:
