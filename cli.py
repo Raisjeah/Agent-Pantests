@@ -45,6 +45,19 @@ def display_findings(findings):
     console.print(table)
 
 @app.command()
+def dashboard(host: str = "0.0.0.0", port: int = 8000):
+    """Jalankan Web Dashboard interaktif."""
+    import uvicorn
+    from web.server import app as web_app
+    print_banner()
+    console.print(Panel(
+        f"Dashboard berjalan di: [bold cyan]http://{host}:{port}[/bold cyan]",
+        title="🚀 WEB SERVER",
+        border_style="green"
+    ))
+    uvicorn.run(web_app, host=host, port=port)
+
+@app.command()
 def scan(
     target: str = typer.Argument(..., help="Target IP/domain/URL/path"),
     scope: str = typer.Option("all", help="Scope: web, os, mobile, code (comma-separated)"),
