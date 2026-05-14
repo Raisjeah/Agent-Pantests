@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 import yaml
 from langchain_core.prompts import ChatPromptTemplate
-from agent.llm import llm
+from agent.llm import get_llm
 from agent.tools.sqlmap import sqlmap_tool
 from agent.tools.trivy import trivy_tool
 from agent.tools.semgrep import semgrep_tool
@@ -17,7 +17,8 @@ prompt_path = current_dir / "prompts" / "vuln_assess.yaml"
 
 def vuln_assess_node(state):
     target = state["target"]
-    logger.info(f"VULN_ANALYSIS phase started for {target}")
+    provider = state.get("model_provider")
+    logger.info(f"VULN_ANALYSIS phase started for {target} using {provider}")
 
     results = []
 
@@ -69,6 +70,8 @@ def vuln_assess_node(state):
         "findings": normalized_findings
     }
 
+    # Dynamic LLM selection
+    llm = get_llm(provider)
     chain = prompt | llm
     try:
         response = chain.invoke({

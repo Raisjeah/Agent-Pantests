@@ -1,9 +1,15 @@
 llm:
-  provider: "google"
-  model: "gemini-1.5-flash"
-  temperature: 0.1
-  max_tokens: 4096
-  api_key_env: "GOOGLE_API_KEY"
+  default_provider: "google"
+  google:
+    model: "gemini-1.5-flash"
+    temperature: 0.1
+    max_tokens: 4096
+    api_key_env: "GOOGLE_API_KEY"
+  anthropic:
+    model: "claude-3-5-sonnet-20241022"
+    temperature: 0.1
+    max_tokens: 4096
+    api_key_env: "ANTHROPIC_API_KEY"
 
 safety:
   human_in_the_loop: true

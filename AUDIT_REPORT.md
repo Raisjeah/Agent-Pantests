@@ -62,3 +62,4 @@ The project is an AI-powered penetration testing CLI tool built on **LangGraph**
 3.  **Analyzer-Only LLM**: Refactor prompts to strictly forbid any output not present in the normalized state. Use "Evidence-Based reasoning" where every finding must point to a specific `evidence_id`.
 4.  **Schema Validation**: Use Pydantic to validate LLM outputs and tool outputs.
 5.  **Graceful Degeneracy**: If critical tools fail, the agent reports the failure and returns "failed" or "empty_result" status.
+6.  **Multi-Model Support**: Integrated support for both Google (Gemini) and Anthropic (Claude 3.5 Sonnet) providers with a dynamic CLI model switch.
