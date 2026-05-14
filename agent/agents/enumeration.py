@@ -5,7 +5,9 @@ from langchain_core.prompts import ChatPromptTemplate
 from agent.llm import llm
 from agent.tools.nuclei import nuclei_tool
 from agent.logger import AILogger
-from utils.parser import parse_llm_json
+from agent.normalization import normalize_tool_output
+from agent.agents.schemas import LLMResponse
+from utils.parser import safe_json_parse
 
 logger = AILogger("Enumeration")
 current_dir = Path(__file__).parent.parent
@@ -15,22 +17,22 @@ def enumeration_node(state):
     target = state["target"]
     logger.info(f"ENUM phase started for {target}")
 
-    scanning_data = state.get("scan", {})
-
     # Run specific nuclei templates for deep enumeration
     try:
         nuclei_res = nuclei_tool.invoke({"target": target, "template": "http,config,cves"})
     except Exception as e:
         logger.error(f"nuclei failed: {e}")
-        nuclei_res = {"error": str(e)}
+        nuclei_res = {"error": str(e), "tool": "nuclei", "target": target}
 
-    has_nuclei = nuclei_res and "error" not in nuclei_res and nuclei_res.get("nuclei_results")
+    # Normalize data
+    nuclei_state = normalize_tool_output(nuclei_res)
 
-    if not has_nuclei:
+    if not nuclei_state.findings:
         logger.warning(f"No evidence found in ENUM for {target}")
         return {
             "current_state": "ENUM",
             "status": "empty_result",
+            "evidence": [{"tool": "nuclei", "data": nuclei_res}],
             "enum": {"nuclei": nuclei_res}
         }
 
@@ -38,21 +40,27 @@ def enumeration_node(state):
         prompt_cfg = yaml.safe_load(f)
     prompt = ChatPromptTemplate.from_messages(prompt_cfg["messages"])
 
+    # Prepare normalized data for LLM
+    llm_input_data = {
+        "vulnerabilities": [v.dict() for v in nuclei_state.vulnerabilities],
+        "findings": [f.dict() for f in nuclei_state.findings]
+    }
+
     chain = prompt | llm
     try:
         response = chain.invoke({
             "target": target,
-            "scanning_data": json.dumps(scanning_data, indent=2),
-            "nuclei_output": json.dumps(nuclei_res, indent=2)
+            "evidence_json": json.dumps(llm_input_data, indent=2)
         })
-        parsed = parse_llm_json(response.content)
+        parsed_obj = safe_json_parse(response.content, LLMResponse)
+        parsed = parsed_obj.dict()
 
         return {
             "current_state": "ENUM",
             "status": parsed.get("status", "success"),
             "confidence": parsed.get("confidence", 0.5),
             "findings": parsed.get("findings", []),
-            "evidence": [{"tool": "enum", "data": {"nuclei": nuclei_res}}],
+            "evidence": [{"tool": "nuclei", "data": nuclei_res}],
             "enum": parsed
         }
     except Exception as e:
